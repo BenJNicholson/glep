@@ -1,8 +1,12 @@
+//// Module defining a Regex type representing the abstract syntax of a regular
+//// expression, along with constructor functions and a derivative function.
+
 import gleam/list
 import gleam/order.{type Order}
 import gleam/set.{type Set}
 import gleam/string
 
+// These should go somewhere else later
 pub const digits = "0123456789"
 
 pub const word_characters = digits
@@ -10,6 +14,7 @@ pub const word_characters = digits
   <> "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   <> "_"
 
+/// Type representing a regular expression
 pub type Regex {
   EmptySet
   Epsilon
@@ -22,6 +27,8 @@ pub type Regex {
   Complement(Regex)
 }
 
+/// Generic function for lexicographically comparing lists given a comparison
+/// function.
 fn compare_list(l1: List(t), l2: List(t), comparer: fn(t, t) -> Order) -> Order {
   case l1, l2 {
     [], [] -> order.Eq
@@ -36,11 +43,12 @@ fn compare_list(l1: List(t), l2: List(t), comparer: fn(t, t) -> Order) -> Order 
   }
 }
 
+/// Compares regexes according to rules used by ml-ulex
 pub fn compare(re1: Regex, re2: Regex) -> order.Order {
   case re1, re2 {
     // Equal if they're the same
     r, s if r == s -> order.Eq
-    // Compare primitive values
+    //---- Compare primitive values ----
     // Empty string
     Epsilon, _ -> order.Lt
     _, Epsilon -> order.Gt
@@ -58,7 +66,7 @@ pub fn compare(re1: Regex, re2: Regex) -> order.Order {
       )
     CharacterSet(_), _ -> order.Lt
     _, CharacterSet(_) -> order.Gt
-    // Compare combinations of regexes
+    //---- Compare combinations of regexes ----
     // Compare concatenations
     Concatenation(res1), Concatenation(res2) ->
       compare_list(res1, res2, compare)
@@ -75,11 +83,15 @@ pub fn compare(re1: Regex, re2: Regex) -> order.Order {
     And(res1), And(res2) -> compare_list(res1, res2, compare)
     And(_), _ -> order.Lt
     _, And(_) -> order.Gt
+    // Compare complements
     Complement(re1), Complement(re2) -> compare(re1, re2)
   }
 }
 
 // Constructors ----------------------------------------------------------------
+
+/// Makes a new CharacterSet value unless the given set is empty, in which case
+/// returns an EmptySet.
 pub fn new_character_set(chars: Set(String)) {
   case set.is_empty(chars) {
     True -> EmptySet
@@ -87,6 +99,7 @@ pub fn new_character_set(chars: Set(String)) {
   }
 }
 
+/// Makes a new Concatenation value given two Regex values
 pub fn new_concatenation(r1: Regex, r2: Regex) {
   case r1, r2 {
     Epsilon, r | r, Epsilon -> r
@@ -99,6 +112,7 @@ pub fn new_concatenation(r1: Regex, r2: Regex) {
   }
 }
 
+/// Makes a new Concatenation given a list of Regex values
 pub fn new_concatenation_from_list(res: List(Regex)) {
   case res {
     [] -> Epsilon
@@ -107,6 +121,7 @@ pub fn new_concatenation_from_list(res: List(Regex)) {
   }
 }
 
+/// Makes a new Kleene star of the given Regex
 pub fn new_star(r: Regex) {
   case r {
     Epsilon -> Epsilon
@@ -116,6 +131,7 @@ pub fn new_star(r: Regex) {
   }
 }
 
+//---- Helper functions for making Or and And values ----
 fn merge(res1, res2) {
   case res1, res2 {
     [], res2 -> res2
@@ -167,6 +183,7 @@ fn merge_with_character_sets(res, op) {
   }
 }
 
+/// Makes an Or given two Regex values
 pub fn new_or(re1: Regex, re2: Regex) {
   let mk = fn(a, b) {
     case merge_with_character_sets(merge(a, b), set.union) {
@@ -191,6 +208,7 @@ pub fn new_or(re1: Regex, re2: Regex) {
   }
 }
 
+/// Makes an And given two Regex values
 pub fn new_and(re1: Regex, re2: Regex) {
   let mk = fn(a, b) {
     case merge_with_character_sets(merge(a, b), set.intersection) {
@@ -216,6 +234,7 @@ pub fn new_and(re1: Regex, re2: Regex) {
   }
 }
 
+/// Makes a Complement of the given Regex
 pub fn new_complement(r: Regex) {
   case r {
     Complement(re) -> re
@@ -224,6 +243,9 @@ pub fn new_complement(r: Regex) {
   }
 }
 
+// Convenience functions for common regex shorthands ---------------------
+
+/// Implements the ? operator
 pub fn new_zero_or_one(re: Regex) {
   new_or(Epsilon, re)
 }
@@ -244,11 +266,13 @@ fn high(re: Regex, n: Int) {
   }
 }
 
+/// Implements [re]{min, max} syntax
 pub fn new_repeat(re: Regex, min: Int, max: Int) {
   assert min < max as "Error: Minimum repetitions must be less than maximum"
   new_concatenation(low(re, min), high(re, max))
 }
 
+/// Implements [re]{min,} syntax
 pub fn new_at_least(re: Regex, n: Int) {
   case n {
     0 -> new_star(re)
@@ -256,12 +280,15 @@ pub fn new_at_least(re: Regex, n: Int) {
   }
 }
 
+/// Implements + operator
 pub fn new_one_or_more(re: Regex) {
   new_at_least(re, 1)
 }
 
 // Derivatives -----------------------------------------------------------------
-pub fn is_nullable(regex re: Regex) -> Bool {
+/// Checks Regex nullability, i.e. whether the empty string Epsilon is in the
+/// language recognized by the regular expression.
+fn is_nullable(regex re: Regex) -> Bool {
   case re {
     EmptySet -> False
     CharacterSet(_) -> False
@@ -275,14 +302,17 @@ pub fn is_nullable(regex re: Regex) -> Bool {
   }
 }
 
-pub fn nu(regex re: Regex) -> Regex {
+/// Converts nullability boolean to Regex value.
+fn nu(regex re: Regex) -> Regex {
   case is_nullable(re) {
     True -> Epsilon
     False -> EmptySet
   }
 }
 
-fn derivative(re: Regex, a: String) {
+/// Takes the derivative of a Regex with respect to the given character. The
+/// argument `a` must be a single character.
+pub fn derivative(re: Regex, a: String) -> Regex {
   case re {
     Epsilon -> EmptySet
     CharacterSet(s) ->
@@ -302,12 +332,6 @@ fn derivative(re: Regex, a: String) {
           derivative(new_concatenation_from_list(res), a),
         ),
       )
-
-    // Concatenation(expr1, expr2) ->
-    //   new_or(
-    //     new_concatenation(derivative(expr1, a), expr2),
-    //     new_concatenation(nu(expr1), derivative(expr2, a)),
-    //   )
     Complement(expr1) -> new_complement(derivative(expr1, a))
     Star(expr1) -> new_concatenation(derivative(expr1, a), new_star(expr1))
     Or([r]) -> derivative(r, a)
@@ -323,6 +347,8 @@ fn derivative(re: Regex, a: String) {
   }
 }
 
+/// Iteratively takes the derivative of a Regex with respect to a string of
+/// arbitrary length.
 pub fn string_derivative(regex re: Regex, with_respect_to wrt: String) {
   case string.pop_grapheme(wrt) {
     Error(Nil) -> re

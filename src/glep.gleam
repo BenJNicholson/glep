@@ -6,7 +6,7 @@ import input
 pub fn exit(code: Int) -> Int
 
 fn match_pattern(input: String, pattern: String) -> Result(Bool, String) {
-  todo
+  todo as "Placeholder for sketch of main function"
 }
 
 pub fn main() -> Int {
