@@ -7,7 +7,7 @@ import gleam/set.{type Set}
 import gleam/string
 
 /// Type representing a regular expression
-pub type Regex {
+pub opaque type Regex {
   EmptySet
   Epsilon
   CharacterSet(chars: Set(String))
@@ -81,6 +81,21 @@ pub fn compare(re1: Regex, re2: Regex) -> order.Order {
 }
 
 // Constructors ----------------------------------------------------------------
+
+/// Makes a new EmptySet value
+pub fn new_empty_set() {
+  EmptySet
+}
+
+/// Makes a new Epsilon value
+pub fn new_epsilon() {
+  Epsilon
+}
+
+/// Makes a new Any value
+pub fn new_any() {
+  Any
+}
 
 /// Makes a new CharacterSet value unless the given set is empty, in which case
 /// returns an EmptySet.
