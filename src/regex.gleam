@@ -36,7 +36,7 @@ fn compare_list(l1: List(t), l2: List(t), comparer: fn(t, t) -> Order) -> Order 
 }
 
 /// Compares regexes according to rules used by ml-ulex
-pub fn compare(re1: Regex, re2: Regex) -> order.Order {
+fn compare(re1: Regex, re2: Regex) -> order.Order {
   case re1, re2 {
     // Equal if they're the same
     r, s if r == s -> order.Eq
