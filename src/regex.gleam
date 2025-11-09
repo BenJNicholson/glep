@@ -6,14 +6,6 @@ import gleam/order.{type Order}
 import gleam/set.{type Set}
 import gleam/string
 
-// These should go somewhere else later
-pub const digits = "0123456789"
-
-pub const word_characters = digits
-  <> "abcdefghijklmnopqrstuvwxyz"
-  <> "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  <> "_"
-
 /// Type representing a regular expression
 pub type Regex {
   EmptySet
@@ -270,6 +262,14 @@ fn high(re: Regex, n: Int) {
 pub fn new_repeat(re: Regex, min: Int, max: Int) {
   assert min < max as "Error: Minimum repetitions must be less than maximum"
   new_concatenation(low(re, min), high(re, max))
+}
+
+/// Implements [re]{n} syntax
+pub fn new_exactly(re: Regex, n: Int) {
+  case n {
+    0 -> Epsilon
+    n -> new_concatenation_from_list(list.repeat(re, n))
+  }
 }
 
 /// Implements [re]{min,} syntax
